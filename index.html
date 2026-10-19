@@ -14,7 +14,7 @@ async function gate(){if(state.recovery){showNewPassword();return}if(!state.user
 async function showMfa(){const {data,error}=await sb.auth.mfa.listFactors();if(error){auth();say(error.message,'error');return}const verified=data?.totp?.find(f=>f.status==='verified');if(verified){state.mfa={kind:'challenge',id:verified.id};auth('mfa');return}const unverified=data?.totp?.find(f=>f.status==='unverified');if(unverified){await sb.auth.mfa.unenroll({factorId:unverified.id})}const enrolled=await sb.auth.mfa.enroll({factorType:'totp',friendlyName:'Arcangel IRI Authenticator'});if(enrolled.error){auth();say(enrolled.error.message,'error');return}state.mfa={kind:'enroll',id:enrolled.data.id,qr:enrolled.data.totp.qr_code,secret:enrolled.data.totp.secret};auth('mfa')}
 function auth(mode=state.mode){state.mode=mode;const m=mode==='mfa',signup=mode==='signup';$('root').innerHTML=`<section class="auth-layout"><div class="auth-visual"><div class="brand"><span class="mark">✦</span> Arcangel IRI<small>TRAVEL INTELLIGENCE</small></div><div><div class="eyebrow">SECURE INTELLIGENCE PORTAL</div><div class="auth-title">Safeguarding People.<br><em>Protecting Possibilities.</em></div><p style="max-width:500px;color:#cdd8e0;font-size:16px">Secure travel intelligence, destination analysis and direct access to your Arcangel Concierge Desk.</p></div><div class="auth-feature">Encrypted access · Multi-factor verification · Private intelligence reporting</div></div><div class="auth-card"><div class="logo"><span>✦</span> Arcangel IRI</div><div style="height:17px"></div><div class="eyebrow">${m?'IDENTITY VERIFICATION':signup?'CREATE YOUR ACCOUNT':'WELCOME BACK'}</div><h1>${m?'Secure your account':signup?'Start your journey':'Sign in securely'}</h1><p class="muted">${m?'A second factor is required before accessing travel intelligence.':signup?'Create a client account for your organisation.':'Enter your credentials to access your dashboard.'}</p>${m?'':`<div class="tabs"><button class="${!signup?'selected':''}" onclick="auth('login')">Sign in</button><button class="${signup?'selected':''}" onclick="auth('signup')">Sign up</button></div>`}<div id="feedback" hidden></div>${m?mfaForm():`<form id="authform" onsubmit="doAuth(event)">${signup?'<label>Full name</label><input name="name" required maxlength="160" autocomplete="name" placeholder="Your full name"><label>Organisation / family name</label><input name="org" required maxlength="120" placeholder="Organisation name">':''}<label>Email address</label><input name="email" type="email" required autocomplete="email" placeholder="you@example.com"><label>Password</label><input name="password" type="password" minlength="8" required autocomplete="${signup?'new-password':'current-password'}" placeholder="Minimum 8 characters"><button type="submit" class="gold submit">${signup?'Create account':'Sign in'} &nbsp; →</button></form><p style="text-align:center;margin-top:20px"><button onclick="resetPassword()" class="ghost" style="border:0;font-size:12px">Forgot password?</button></p>`}<p class="muted" style="font-size:11px;margin-top:30px">Protected by Supabase Auth · TOTP multi-factor authentication</p></div></section>`}
 function mfaForm(){if(!state.mfa)return '';const x=state.mfa;return `${x.kind==='enroll'?`<div class="notice">Scan the QR code in an authenticator app (Google Authenticator, Microsoft Authenticator or similar). Then enter the six-digit code.</div><div style="text-align:center;margin:20px"><img src="${esc(x.qr)}" alt="Authenticator enrolment QR code" style="max-width:180px"></div><details><summary>Cannot scan? Enter setup key manually</summary><p style="word-break:break-all">${esc(x.secret)}</p></details>`:'<div class="notice">Enter the six-digit code from your registered authenticator app.</div>'}<form onsubmit="verifyMfa(event)"><label>Six-digit security code</label><input name="code" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required placeholder="000000"><button type="submit" class="gold submit">Verify and continue →</button></form><p><button onclick="logout()" style="border:0;background:none">Sign out</button></p>`}
-async function doAuth(e){e.preventDefault();const d=Object.fromEntries(new FormData(e.target));await loading(async()=>{if(state.mode==='signup'){const {data,error}=await sb.auth.signUp({email:d.email,password:d.password,options:{data:{display_name:d.name,organization_name:d.org}}});if(error)throw error;if(data.session&&data.user){state.user=data.user;await gate();return}state.mode='login';auth('login');say('Registration submitted. Check your email for a confirmation link, then sign in.','success')}else{const {data,error}=await sb.auth.signInWithPassword({email:d.email,password:d.password});if(error)throw error;state.user=data.user;await gate()}})}
+async function doAuth(e){e.preventDefault();const d=Object.fromEntries(new FormData(e.target));await loading(async()=>{if(state.mode==='signup'){const {data,error}=await sb.auth.signUp({email:d.email,password:d.password,options:{emailRedirectTo:location.origin+location.pathname,data:{display_name:d.name,organization_name:d.org}}});if(error)throw error;if(data.session&&data.user){state.user=data.user;await gate();return}state.mode='login';auth('login');say('Registration submitted. Check your email for a confirmation link, then sign in.','success')}else{const {data,error}=await sb.auth.signInWithPassword({email:d.email,password:d.password});if(error)throw error;state.user=data.user;await gate()}})}
 async function verifyMfa(e){e.preventDefault();const code=String(new FormData(e.target).get('code'));await loading(async()=>{const {error}=await sb.auth.mfa.challengeAndVerify({factorId:state.mfa.id,code});if(error)throw error;state.mfa=null;const {data}=await sb.auth.getUser();state.user=data.user;await gate()})}
 async function resetPassword(){const email=prompt('Enter your account email for a password reset link:');if(!email)return;if(location.protocol==='file:')return say('Password recovery requires a hosted HTTPS URL. Open the deployed application to request a reset.','error');const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});say(error?error.message:'If the account exists, a password reset email will be sent.',error?'error':'success')}
 function showNewPassword(){$('root').innerHTML=`<section class="auth-layout"><div class="auth-visual"><div class="brand">✦ Arcangel IRI</div><div class="auth-title">Restore secure access.</div></div><div class="auth-card"><div class="eyebrow">ACCOUNT RECOVERY</div><h1>Choose a new password</h1><p class="muted">Set a new password. Multi-factor verification is still required before accessing intelligence records.</p><div id="feedback" hidden></div><form onsubmit="saveNewPassword(event)"><label>New password</label><input name="password" type="password" minlength="12" autocomplete="new-password" required><label>Confirm password</label><input name="confirm" type="password" minlength="12" autocomplete="new-password" required><button class="gold submit" type="submit">Update password</button></form></div></section>`}
@@ -48,9 +48,105 @@ async function loadComments(id){const {data,error}=await sb.from('travel_request
 async function addComment(e){e.preventDefault();const d=new FormData(e.target),body=String(d.get('body')||'').trim();if(!body)return;const {error}=await sb.from('travel_request_comments').insert({request_id:state.selected,author_id:state.user.id,body,internal:state.staff&&d.has('internal')});if(error)return alert(error.message);e.target.reset();await loadComments(state.selected)}
 async function loadAudit(){const {data,error}=await sb.from('travel_audit_log').select('*').order('created_at',{ascending:false}).limit(75);const el=$('audits');if(!el)return;el.innerHTML=error?`<div class="notice error">${esc(error.message)}</div>`:(data||[]).map(x=>`<div class="list-item"><b>${esc(x.action)}</b> <small>${new Date(x.created_at).toLocaleString()}</small><br><small>Request: ${esc(x.request_id||'—')}</small></div>`).join('')||'<div class="empty">No audit events yet.</div>'}
 
-function startFailure(message){console.error(message);const node=document.getElementById('startup-message');if(node){node.textContent=message;node.style.color='#b3261e';const card=node.closest('.auth-card');if(card&&!document.getElementById('startup-retry')){const retry=document.createElement('button');retry.id='startup-retry';retry.className='gold';retry.textContent='Try again';retry.onclick=()=>location.reload();card.appendChild(retry)}}}
-function loadSdkFrom(url,ms=10000){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=url;s.async=true;let settled=false;const done=(err)=>{if(settled)return;settled=true;clearTimeout(t);s.onload=null;s.onerror=null;if(err){s.remove();reject(err)}else resolve()};const t=setTimeout(()=>done(new Error('SDK load timed out')),ms);s.onload=()=>window.supabase?.createClient?done():done(new Error('SDK unavailable'));s.onerror=()=>done(new Error('SDK network error'));document.head.appendChild(s)})}
-async function loadSupabaseSDK(){const cdns=['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js','https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'];let lastError;for(const url of cdns){try{await loadSdkFrom(url);sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});await start();return}catch(err){lastError=err;console.error('Startup attempt failed',url,err)}}startFailure('Unable to load the secure authentication service. Check your connection or browser content blocker, then try again. '+(lastError?.message||''))}
+// Dependency-free Supabase adapter for the Arcangel static GitHub Pages build.
+// Browser talks to the project's official Auth, PostgREST and Storage endpoints.
+function createRestSupabase(base, publishableKey) {
+  const storeKey='arcangel-iri-auth:'+new URL(base).hostname;
+  const listeners=new Set();
+  let session=null;
+  try {session=JSON.parse(localStorage.getItem(storeKey)||'null')} catch(_){}
+  function emit(type){for(const cb of listeners){try{cb(type,session)}catch(e){console.error(e)}}}
+  function setSession(next,type='SIGNED_IN'){
+    session=next;
+    if(session) localStorage.setItem(storeKey,JSON.stringify(session));
+    else localStorage.removeItem(storeKey);
+    emit(type);
+  }
+  function jwtAal(){try{return JSON.parse(atob((session?.access_token||'').split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).aal||'aal1'}catch(_){return 'aal1'}}
+  function errorOf(payload,status){const err=new Error(payload?.msg||payload?.error_description||payload?.message||payload?.error||`Request failed (${status})`);err.status=status;return err}
+  async function request(path,{method='GET',body,auth=true,headers={},raw=false}={}){
+    let url=base+path;const h={'apikey':publishableKey,...headers};
+    if(auth && session?.access_token) h.Authorization=`Bearer ${session.access_token}`;
+    else h.Authorization=`Bearer ${publishableKey}`;
+    let payload=body;
+    if(body!==undefined && !(body instanceof Blob) && !(body instanceof FormData) && typeof body!=='string') {payload=JSON.stringify(body);h['Content-Type']='application/json'}
+    if(typeof body==='string' && !h['Content-Type']) h['Content-Type']='application/json';
+    let response;
+    try {response=await fetch(url,{method,headers:h,body:payload})}catch(e){throw new Error('Cannot connect to Supabase. Check network access or browser protection. '+e.message)}
+    if(raw){if(!response.ok){let p={};try{p=await response.json()}catch(_){}throw errorOf(p,response.status)}return response}
+    let p=null;
+    if(response.status!==204){const text=await response.text();if(text){try{p=JSON.parse(text)}catch(_){p={message:text}}}}
+    if(!response.ok) throw errorOf(p,response.status);
+    return p;
+  }
+  async function refreshSession(){
+    if(!session?.refresh_token) return false;
+    try{
+      const p=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token},auth:false});
+      setSession({...p,user:p.user||session.user},'TOKEN_REFRESHED');return true;
+    }catch(e){setSession(null,'SIGNED_OUT');return false}
+  }
+  function sessionOf(p){if(p?.access_token){setSession({access_token:p.access_token,refresh_token:p.refresh_token,expires_at:Math.floor(Date.now()/1000)+(p.expires_in||3600),user:p.user||session?.user},'SIGNED_IN')}}
+  async function withSession(fn){try{if(session?.expires_at && session.expires_at < Date.now()/1000+60) await refreshSession();return {data:await fn(),error:null}}catch(e){return {data:null,error:e}}}
+  async function jsonAuth(path,method='GET',body){return request('/auth/v1'+path,{method,body})}
+  const auth={
+    onAuthStateChange(cb){listeners.add(cb);return {data:{subscription:{unsubscribe(){listeners.delete(cb)}}}}},
+    async getUser(){return withSession(async()=>{if(!session?.access_token)return {user:null};const user=await jsonAuth('/user');if(user?.id){session.user=user;localStorage.setItem(storeKey,JSON.stringify(session))}return {user}})},
+    async signUp({email,password,options}){return withSession(async()=>{const path='/signup'+(options?.emailRedirectTo?'?redirect_to='+encodeURIComponent(options.emailRedirectTo):'');const p=await jsonAuth(path,'POST',{email,password,data:options?.data||{}});sessionOf(p);return {user:p.user||p,session:p.access_token?session:null}})},
+    async signInWithPassword({email,password}){return withSession(async()=>{const p=await jsonAuth('/token?grant_type=password','POST',{email,password});sessionOf(p);return {user:p.user,session}})},
+    async signOut(){try{if(session)await jsonAuth('/logout','POST')}catch(e){console.warn('Logout endpoint:',e)}setSession(null,'SIGNED_OUT');return {error:null}},
+    async resetPasswordForEmail(email,{redirectTo}={}){return withSession(async()=>{await jsonAuth('/recover'+(redirectTo?'?redirect_to='+encodeURIComponent(redirectTo):''),'POST',{email});return {}}).then(x=>({error:x.error}))},
+    async updateUser(attributes){return withSession(async()=>{const user=await jsonAuth('/user','PUT',attributes);if(session){session.user=user;localStorage.setItem(storeKey,JSON.stringify(session))}return {user}})},
+    mfa:{
+      async getAuthenticatorAssuranceLevel(){return {data:{currentLevel:jwtAal(),nextLevel:'aal2'},error:null}},
+      async listFactors(){return withSession(async()=>{const user=await jsonAuth('/user');return {totp:(user.factors||[]).filter(x=>x.factor_type==='totp'),phone:(user.factors||[]).filter(x=>x.factor_type==='phone')}})},
+      async enroll({factorType,friendlyName}){return withSession(async()=>jsonAuth('/factors','POST',{factor_type:factorType,friendly_name:friendlyName}))},
+      async unenroll({factorId}){return withSession(async()=>jsonAuth('/factors/'+encodeURIComponent(factorId),'DELETE'))},
+      async challengeAndVerify({factorId,code}){return withSession(async()=>{const challenge=await jsonAuth('/factors/'+encodeURIComponent(factorId)+'/challenge','POST',{});const verified=await jsonAuth('/factors/'+encodeURIComponent(factorId)+'/verify','POST',{challenge_id:challenge.id,code});sessionOf(verified);return verified})}
+    }
+  };
+  function tableBuilder(table){
+    let op='select',columns='*',payload=null,filters=[],options=[];
+    const obj={
+      select(cols='*'){columns=cols;return obj},
+      eq(field,value){filters.push([field,'eq.'+value]);return obj},
+      order(field,{ascending=true}={}){options.push(['order',field+'.'+(ascending?'asc':'desc')]);return obj},
+      limit(n){options.push(['limit',String(n)]);return obj},
+      maybeSingle(){options.push(['__single','1']);return obj},
+      insert(data){op='insert';payload=data;return obj},
+      update(data){op='update';payload=data;return obj},
+      then(resolve,reject){return run().then(resolve,reject)}
+    };
+    async function run(){try{
+      const params=new URLSearchParams();if(op==='select') params.set('select',columns);
+      for(const [key,val] of [...filters,...options])if(key!=='__single')params.append(key,val);
+      const single=options.some(x=>x[0]==='__single');
+      const path='/rest/v1/'+encodeURIComponent(table)+(params.size?'?'+params.toString():'');
+      const headers=op==='insert'||op==='update'?{'Prefer':'return=minimal'}:{};
+      const data=await request(path,{method:op==='insert'?'POST':op==='update'?'PATCH':'GET',body:op==='select'?undefined:payload,headers});
+      return {data:single?(data?.[0]||null):data,error:null};
+    }catch(e){return {data:null,error:e}}}
+    return obj;
+  }
+  const storage={from(bucket){const b=encodeURIComponent(bucket);return {
+    async upload(path,file,{contentType='application/pdf',upsert=false}={}){try{const data=await request('/storage/v1/object/'+b+'/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',body:file,headers:{'Content-Type':contentType,'x-upsert':String(upsert)}});return {data,error:null}}catch(error){return {data:null,error}}},
+    async remove(paths){try{const data=await request('/storage/v1/object/'+b,{method:'DELETE',body:{prefixes:paths}});return {data,error:null}}catch(error){return {data:null,error}}},
+    async createSignedUrl(path,expiresIn){try{const data=await request('/storage/v1/object/sign/'+b+'/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',body:{expiresIn}});const url=data?.signedURL||data?.signedUrl;return {data:{signedUrl:new URL(url,base+'/storage/v1/').href},error:null}}catch(error){return {data:null,error}}}
+  }}};
+  async function rpc(name,args){return withSession(()=>request('/rest/v1/rpc/'+encodeURIComponent(name),{method:'POST',body:args}))}
+  // Handle email confirmation/password recovery URLs from Supabase Auth.
+  const h=new URLSearchParams(location.hash.replace(/^#/,''));
+  if(h.get('access_token')){
+    sessionOf({access_token:h.get('access_token'),refresh_token:h.get('refresh_token'),expires_in:Number(h.get('expires_in')||3600)});
+    if(h.get('type')==='recovery')window.__arcangelRecovery=true;
+    history.replaceState(null,'',location.pathname+location.search);
+  }
+  // Refresh expiring login sessions without requiring a third-party JS bundle.
+  setInterval(()=>{if(session?.refresh_token && session?.expires_at && session.expires_at<Date.now()/1000+180)refreshSession()},60000);
+  return {auth,from:tableBuilder,storage,rpc};
+}
 
-loadSupabaseSDK();
+
+try { sb=createRestSupabase(URL,KEY); if(window.__arcangelRecovery)state.recovery=true; start(); } catch(e) { console.error(e); document.getElementById('startup-message').textContent='Unable to initialise secure access: '+e.message; }
+
 </script></body></html>
