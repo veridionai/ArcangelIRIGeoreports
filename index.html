@@ -630,7 +630,6 @@ function inviteLink(id){const u=new URL(location.href);u.searchParams.set('invit
 async function copyInvite(id){const text=inviteLink(id);try{await navigator.clipboard.writeText(text);alert('Invitation link copied. Send it privately to the invited email address.')}catch(_){prompt('Copy this invitation link:',text)}}
 async function inviteUser(e){e.preventDefault();if(!state.orgAdmin)return;const d=Object.fromEntries(new FormData(e.target));await loading(async()=>{const {data,error}=await sb.rpc('travel_create_invite',{invitee_email:d.email,target_department:d.department||null});if(error)throw error;await loadData();shell();copyInvite(data)})}
 async function decideJoin(id,approve){if(!state.orgAdmin)return;const dept=approve?($('join-dept-'+id)?.value||null):null;await loading(async()=>{const {error}=await sb.rpc('travel_decide_join',{request_id:id,approve,target_department:dept||null});if(error)throw error;await loadData();shell();alert(approve?'Membership approved.':'Membership request declined.')})}
-async 
 function iriCopyConciergeOrgCode(id){
  if(!state.staff)return;
  const org=(state.organizations||[]).find(o=>o.id===id);
