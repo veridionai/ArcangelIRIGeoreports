@@ -411,7 +411,7 @@ let state={navCollapsed:localStorage.getItem('iri-nav-collapsed')==='yes',plans:
 const say=(msg,kind='notice')=>{state.notice=msg;state.noticeType=kind;const el=$('feedback');if(el){el.className='notice '+kind;el.textContent=msg;el.hidden=false;}else if(msg)alert(msg)};
 const loading=async(fn)=>{if(state.working)return;state.working=true;document.querySelectorAll('button[type=submit]').forEach(b=>b.disabled=true);try{await fn()}catch(e){console.error(e);say(e.message||'An unexpected error occurred.','error')}finally{state.working=false;document.querySelectorAll('button[type=submit]').forEach(b=>b.disabled=false)}};
 const pill=s=>`<span class="pill ${s==='Completed'?'done':s==='In progress'||s==='In review'?'progress':''}">${esc(s)}</span>`;
-async function start(){try{if(!sb){$('root').innerHTML='<div class="notice error">The secure access service is temporarily unavailable. Check your connection and try again.</div>';return}sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){state.recovery=true;showNewPassword()}});const {data,error}=await Promise.race([sb.auth.getUser(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Authentication service timed out. Please retry.')),14000))]);if(state.recovery){showNewPassword();return}if(error&&error.status!==400)console.warn(error);state.user=data?.user||null;await gate()}catch(e){console.error(e);auth('login');say('Could not initialise the application: '+(e.message||'Please try again.'),'error')}}
+async function start(){try{if(!sb){$('root').innerHTML='<div class="notice error">The secure access service is temporarily unavailable. Check your connection and try again.</div>';return}sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){state.recovery=true;showNewPassword()}});const {data,error}=await Promise.race([sb.auth.getUser(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Authentication service timed out. Please retry.')),8000))]);if(state.recovery){showNewPassword();return}if(error&&error.status!==400)console.warn(error);state.user=data?.user||null;await gate()}catch(e){console.error(e);auth('login');say('Could not initialise the application: '+(e.message||'Please try again.'),'error')}}
 async function gate(){
  if(state.recovery){showNewPassword();return}if(!state.user){auth();return}
  const {data:assurance,error:assuranceError}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -787,7 +787,23 @@ function createRestSupabase(base, publishableKey) {
 }
 
 
-try { sb=createRestSupabase(SUPABASE_URL,KEY); if(window.__arcangelRecovery)state.recovery=true; start(); } catch(e) { console.error(e); document.getElementById('startup-message').textContent='Unable to initialise secure access: '+e.message; }
+try {
+  sb=createRestSupabase(SUPABASE_URL,KEY);
+  if(window.__arcangelRecovery)state.recovery=true;
+  // Fail visibly rather than leaving users trapped on the splash screen.
+  window.__iriStartupWatchdog=setTimeout(()=>{
+    if(document.getElementById('startup-message')){
+      console.warn('Arcangel startup exceeded 10 seconds; opening the secure sign-in screen.');
+      try { auth('login'); say('Secure access took longer than expected. Please sign in or refresh the page.','error'); }
+      catch(err){ console.error('Startup recovery failed',err); const root=document.getElementById('root');if(root)root.innerHTML='<main style="max-width:460px;margin:12vh auto;padding:30px;font-family:sans-serif"><h1>Arcangel secure access</h1><p>The application could not finish loading. Please refresh the page.</p><button onclick="location.reload()">Retry</button></main>'; }
+    }
+  },10000);
+  start();
+} catch(e) {
+  console.error(e);
+  const message=document.getElementById('startup-message');
+  if(message)message.textContent='Unable to initialise secure access: '+e.message;
+}
 
 </script>
 <style>.iri-overlay{position:fixed;inset:0;background:rgba(13,31,49,.67);display:grid;place-items:center;z-index:99999;padding:18px}.iri-dialog{width:min(480px,100%);background:white;color:#172b40;border-radius:15px;padding:30px;box-shadow:0 20px 65px #09172866;text-align:center}.iri-dialog h2{margin:10px 0}.iri-dialog p{line-height:1.65}.iri-dialog .gold{margin-top:12px}.chart-cols{align-items:start!important}.chart-cols>.card{min-height:0!important;height:auto!important}.chart-cols details{margin-top:12px}.chart-cols summary{cursor:pointer;color:#a17b43;font-weight:600;padding:10px 0}.chart-cols .iri-heat-panel{max-width:100%}</style>
