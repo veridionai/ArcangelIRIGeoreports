@@ -560,4 +560,19 @@ try { sb=createRestSupabase(SUPABASE_URL,KEY); if(window.__arcangelRecovery)stat
 </script>
 <style>.iri-overlay{position:fixed;inset:0;background:rgba(13,31,49,.67);display:grid;place-items:center;z-index:99999;padding:18px}.iri-dialog{width:min(480px,100%);background:white;color:#172b40;border-radius:15px;padding:30px;box-shadow:0 20px 65px #09172866;text-align:center}.iri-dialog h2{margin:10px 0}.iri-dialog p{line-height:1.65}.iri-dialog .gold{margin-top:12px}.chart-cols{align-items:start!important}.chart-cols>.card{min-height:0!important;height:auto!important}.chart-cols details{margin-top:12px}.chart-cols summary{cursor:pointer;color:#a17b43;font-weight:600;padding:10px 0}.chart-cols .iri-heat-panel{max-width:100%}</style>
 <script>function iriModal(title,body){document.querySelector('.iri-overlay')?.remove();const el=document.createElement('div');el.className='iri-overlay';el.setAttribute('role','presentation');const card=document.createElement('div');card.className='iri-dialog';card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');const h=document.createElement('h2');h.textContent=title;const p=document.createElement('p');p.textContent=body;const icon=document.createElement('div');icon.textContent='✓';icon.style.cssText='font-size:38px;color:#b18b51';const btn=document.createElement('button');btn.className='gold';btn.textContent='Continue';btn.onclick=()=>el.remove();card.append(icon,h,p,btn);el.append(card);document.body.append(el);btn.focus();el.addEventListener('click',e=>{if(e.target===el)el.remove()});}</script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script></body></html>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script><style id="iri-home-alignment-final">
+/* Final cascade: scoped exclusively to the four Home dashboard cards. */
+#view .iri-home-reports,#view .iri-home-analytics{display:grid!important;grid-template-columns:minmax(0,1.18fr) minmax(0,1fr)!important;align-items:stretch!important;gap:20px!important;width:100%;margin:0!important}
+#view .iri-home-reports>.card,#view .iri-home-analytics>.card{box-sizing:border-box;min-width:0!important;min-height:172px!important;height:100%!important;margin:0!important;padding:22px!important;border-radius:15px!important;display:flex;flex-direction:column;align-self:stretch!important}
+#view .iri-home-reports>.card .rowhead{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:39px;margin:0 0 12px!important}
+#view .iri-home-reports>.card .empty{flex:1;min-height:65px!important;display:flex;justify-content:center;align-items:center;text-align:center}
+#view .iri-home-reports>.card:nth-child(2)>.empty{min-height:72px}
+#view .iri-home-analytics>.card{min-height:355px!important}
+#view .iri-home-analytics>.card h2{margin:2px 0 12px!important}
+#view .iri-home-analytics>.card .stats{margin:8px 0 14px!important;gap:12px!important}
+#view .iri-home-analytics>.card .stats .num{font-size:18px}
+#view .iri-home-analytics>.card details{margin-top:auto!important;padding-top:10px}
+#view .iri-home-analytics>.card svg{max-width:100%;height:auto}
+@media(max-width:900px){#view .iri-home-reports,#view .iri-home-analytics{grid-template-columns:minmax(0,1fr)!important}#view .iri-home-analytics>.card{min-height:290px!important}}
+</style>
+</body></html>
